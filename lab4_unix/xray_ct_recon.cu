@@ -113,7 +113,7 @@ void cudaBackprojection(const float *input_data, float *output_data,
           d = (int) -1 * sqrt(pow(x_i, 2) + pow(y_i, 2));
         }
         else{
-          d = (int) sqrt(pow(x_i, 2) + pow(y_i), 2));
+          d = (int) sqrt(pow(x_i, 2) + pow(y_i, 2));
         }
       }
       output_data[idx] += input_data[sinogram_width * i + d];
