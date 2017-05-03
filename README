@@ -1,0 +1,16 @@
+1.1) At each call of our GPU kernel, each thread goes through
+its own respective adjacent vertex list, checks to see if that
+vertex has been seen before, if it hasn't it enqueues it and sets
+its cost to current cost plus 1. Because each thread is looking
+at a different vertex, they are all looking at entirely different
+sections of the vertex/edge adjacency arrays, and these sections may
+not be adjacent to each other. There is not much loading variables
+into shared memory would do in this situation as
+
+1.2) A good way to check whether F is not all false is to have a
+kernel to check it. There is a pointer to a sum, which is originally
+0, and there are all of the members of F. The pseudocode is as
+follows:
+if(F[threadIdx]){
+  atomicAdd(sum, 1);
+}
