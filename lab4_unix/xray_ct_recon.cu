@@ -148,7 +148,7 @@ int main(int argc, char** argv){
     over to dev_sinogram_cmplx. */
     cudaMalloc((void**) &dev_sinogram_float, sizeof(float) * size_result);
     cudaMalloc((void**) &dev_sinogram_cmplx, sizeof(cufftComplex) * sinogram_width * nAngles);
-    cudaMalloc((void**) &dev_output, sizeof(float) size_result);
+    cudaMalloc((void**) &dev_output, sizeof(float) * size_result);
 
     cudaMemcpy(dev_sinogram_cmplx, sinogram_host, sizeof(cufftComplex) * sinogram_width * nAngles);
 
