@@ -107,8 +107,8 @@ void cudaBackprojection(const float *input_data, float *output_data,
   while(idx < size){
     // Calculate the geometric location of our current pixel
     int geo_x = (idx % height) - width / 2;
-    int geo_y = (-1 * (idx % width)) + height / 2;
-
+    int geo_y = (idx % width) + height / 2;
+    geo_y *= -1;
     // For each angle, check if it is an edge case. Otherwise, calculate the
     // distance we are from the center of the angle's emitter. Then find the
     // value of the sinogram for that pixel.
