@@ -104,7 +104,8 @@ void cudaBackprojection(const float *input_data, float *output_data,
         d = geo_y;
       }
       else{
-        float q = 1 / (cos(theta) / sin(theta));
+        float m = -1 * cos(theta) / sin(theta);
+        float q = -1 / m;
 
         float x_i = (geo_y - m * geo_x) / (q - m);
         float y_i = q * x_i;
