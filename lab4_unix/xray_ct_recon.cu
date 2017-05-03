@@ -127,11 +127,9 @@ void cudaBackprojection(const float *input_data, float *output_data,
 
         float x_i = (geo_y - m * geo_x) / (q - m);
         float y_i = q * x_i;
+        d = (int) sqrt(pow(x_i, 2) + pow(y_i, 2));
         if((q > 0 && x_i < 0) || (q < 0 && x_i > 0)){
-          d = (int) (-1 * sqrt(pow(x_i, 2) + pow(y_i, 2)));
-        }
-        else{
-          d = (int) sqrt(pow(x_i, 2) + pow(y_i, 2));
+          d *= -1;
         }
       }
       output_data[idx] += input_data[sinogram_width * d + i];
@@ -251,7 +249,7 @@ int main(int argc, char** argv){
     cufftHandle plan;
     cufftPlan1d(&plan, sinogram_width, CUFFT_C2C, nAngles);
     cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_FORWARD);
-    // cudaCallHighPassKernel(nBlocks, threadsPerBlock, dev_sinogram_cmplx, sinogram_width, sinogram_width * nAngles);
+    cudaCallHighPassKernel(nBlocks, threadsPerBlock, dev_sinogram_cmplx, sinogram_width, sinogram_width * nAngles);
     fprintf(stderr, "high pass");
     cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_INVERSE);
     cudaCallCmplxToFloat(nBlocks, threadsPerBlock, dev_sinogram_cmplx, dev_sinogram_float,
