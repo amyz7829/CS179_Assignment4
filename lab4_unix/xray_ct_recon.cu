@@ -213,7 +213,7 @@ int main(int argc, char** argv){
         - Copy the reconstructed image back to output_host.
         - Free all remaining memory on the GPU.
     */
-    
+
     __global__
     void cudaBackprojection(const float *input_data, const float *output_data,
       const int sinogram_width, const int angles, const int size){
