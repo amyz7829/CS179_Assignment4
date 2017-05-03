@@ -122,7 +122,7 @@ void cudaBackprojection(const float *input_data, float *output_data,
         d = geo_y;
       }
       else{
-        float m = -1 * cos(theta) / sin(theta);
+        float m = -1 * (cos(theta) / sin(theta));
         float q = -1 / m;
 
         float x_i = (geo_y - m * geo_x) / (q - m);
@@ -134,7 +134,7 @@ void cudaBackprojection(const float *input_data, float *output_data,
           d = (int) sqrt(pow(x_i, 2) + pow(y_i, 2));
         }
       }
-      output_data[idx] += input_data[sinogram_width * i + d];
+      output_data[idx] += input_data[sinogram_width * d + i];
     }
     idx += blockDim.x * gridDim.x;
   }
