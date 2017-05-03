@@ -150,7 +150,7 @@ int main(int argc, char** argv){
     cudaMalloc((void**) &dev_sinogram_cmplx, sizeof(cufftComplex) * sinogram_width * nAngles);
     cudaMalloc((void**) &dev_output, sizeof(float) * size_result);
 
-    cudaMemcpy(dev_sinogram_cmplx, sinogram_host, sizeof(cufftComplex) * sinogram_width * nAngles);
+    cudaMemcpy(dev_sinogram_cmplx, sinogram_host, sizeof(cufftComplex) * sinogram_width * nAngles, cudaMemcpyHostToDevice);
 
     /* TODO 1: Implement the high-pass filter:
         - Use cuFFT for the forward FFT
