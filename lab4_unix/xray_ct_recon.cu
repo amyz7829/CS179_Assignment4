@@ -54,18 +54,19 @@ void checkCUDAKernelError()
 
 }
 
-__global__ void cudaHighPassKernel(const cufftComplex *raw_data, const float sinogram_width, const int size){
+__global__ void cudaHighPassKernel(const cufftComplex *raw_data, const int sinogram_width, const int size){
   uint idx = blockDim.x * blockIdx.x + threadIdx.x;
-  float scalingFactor = idx % sinogram_width - sinogram_width / 2.0;
+  float scalingFactor = (idx % sinogram_width) - sinogram_width / 2.0;
   scalingFactor = abs(scalingFactor)/(sinogram_width / 2.0);
   while(idx < size){
-    raw_data[idx] = raw_data[idx] * scalingFactor;
+    raw_data[idx].x = raw_data[idx].x * scalingFactor;
+    raw_data[idx].y = raw_data[idx].y * scalingFactor;
     idx += blockDim.x * gridDim.x;
   }
 }
 
 void cudaCallHighPassKernel(const unsigned int blocks, const unsigned int threadsPerBlock,
-const cufftComplex *raw_data, const float sinogram_width, const int size){
+const cufftComplex *raw_data, const int sinogram_width, const int size){
   cudaHighPassKernel<<<blocks, threadsPerBlock>>>(raw_data, sinogram_width, size);
 }
 
@@ -113,7 +114,7 @@ void cudaBackprojection(const float *input_data, float *output_data,
           d = (int) -1 * sqrt(pow(x_i, 2) + pow(y_i, 2));
         }
       }
-      output_data[idx] += input[sinogram_width * i + d];
+      output_data[idx] += input_data[sinogram_width * i + d];
     }
     idx += blockDim.x * gridDim.x;
   }
@@ -121,7 +122,7 @@ void cudaBackprojection(const float *input_data, float *output_data,
 
 void cudaCallBackprojection(unsigned int blocks, unsigned int threadsPerBlock,
 const float *input_data, float *output_data, const int sinogram_width,
-const int angles, const int size){
+const int height, const int width, const int angles, const int size){
   cudaBackprojection<<<blocks, threadsPerBlock>>>(input_data, output_data,
     sinogram_width, height, width, angles, size);
 }
