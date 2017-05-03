@@ -54,7 +54,7 @@ void checkCUDAKernelError()
 
 }
 
-__global__ void cudaHighPassKernel(const cufftComplex *raw_data, const int sinogram_width, const int size){
+__global__ void cudaHighPassKernel(cufftComplex *raw_data, const int sinogram_width, const int size){
   uint idx = blockDim.x * blockIdx.x + threadIdx.x;
   float scalingFactor = (idx % sinogram_width) - sinogram_width / 2.0;
   scalingFactor = abs(scalingFactor)/(sinogram_width / 2.0);
@@ -66,7 +66,7 @@ __global__ void cudaHighPassKernel(const cufftComplex *raw_data, const int sinog
 }
 
 void cudaCallHighPassKernel(const unsigned int blocks, const unsigned int threadsPerBlock,
-const cufftComplex *raw_data, const int sinogram_width, const int size){
+cufftComplex *raw_data, const int sinogram_width, const int size){
   cudaHighPassKernel<<<blocks, threadsPerBlock>>>(raw_data, sinogram_width, size);
 }
 
@@ -96,7 +96,6 @@ void cudaBackprojection(const float *input_data, float *output_data,
     int geo_y = -1 * (idx % width) + height / 2;
     for(int i = 0; i < angles; i++){
       float theta = i * 180 / angles;
-      float m;
       int d;
       if(theta == 0){
         d = geo_x;
@@ -105,8 +104,7 @@ void cudaBackprojection(const float *input_data, float *output_data,
         d = geo_y;
       }
       else{
-        float m = -1 * cos(theta) / sin(theta);
-        float q = -1 / m;
+        float q = 1 / (cos(theta) / sin(theta));
 
         float x_i = (geo_y - m * geo_x) / (q - m);
         float y_i = q * x_i;
