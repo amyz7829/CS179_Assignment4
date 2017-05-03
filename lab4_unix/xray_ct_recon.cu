@@ -148,7 +148,7 @@ int main(int argc, char** argv){
     over to dev_sinogram_cmplx. */
     cudaMalloc((void**) &dev_sinogram_float, sizeof(float) * size_result);
     cudaMalloc((void**) &dev_sinogram_cmplx, sizeof(cufftComplex) * sinogram_width * nAngles);
-    cudaMalloc((void**) &output_dev, sizeof(float) size_result);
+    cudaMalloc((void**) &dev_output, sizeof(float) size_result);
 
     cudaMemcpy(dev_sinogram_cmplx, sinogram_host, sizeof(cufftComplex) * sinogram_width * nAngles);
 
@@ -162,10 +162,6 @@ int main(int argc, char** argv){
         Note: If you want to deal with real-to-complex and complex-to-real
         transforms in cuFFT, you'll have to slightly change our code above.
     */
-    cufftHandle plan;
-    cufftPlan1d(&plan, sinogram_width, CUFFT_C2C, nAngles);
-    cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_FORWARD);
-    cudaCallHighPassKernel(nblocks, threadsPerBlock, dev_sinogram_cmplx, sinogram_width, sinogram_width * nAngles);
 
     void cudaCallHighPassKernel(const unsigned int blocks, const unsigned int threadsPerBlock,
     const cufftComplex *raw_data, const float sinogram_width, const int size){
@@ -183,8 +179,13 @@ int main(int argc, char** argv){
         idx += blockDim.x * gridDim.x;
       }
     }
+
+    cufftHandle plan;
+    cufftPlan1d(&plan, sinogram_width, CUFFT_C2C, nAngles);
+    cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_FORWARD);
+    cudaCallHighPassKernel(nblocks, threadsPerBlock, dev_sinogram_cmplx, sinogram_width, sinogram_width * nAngles);
     cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_INVERSE);
-    // Move dev_sinogram_cmplx to dev_sinogram_float
+
     void cudaCallCmplxToFloat(unsigned int blocks, unsigned int threadsPerBlock,
     const cufftComplex *raw_data, const float *output_data, int size){
       cudaCmplxToFloat<<<blocks, threadsPerBlock>>>(raw_data, output_data, size);
