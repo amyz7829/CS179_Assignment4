@@ -232,10 +232,10 @@ int main(int argc, char** argv){
     cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_FORWARD);
     cudaCallHighPassKernel(nBlocks, threadsPerBlock, dev_sinogram_cmplx, sinogram_width, sinogram_width * nAngles);
     cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_INVERSE);
-    fprintf(cout, "high pass\n");
+    fprintf(stderr, "high pass\n");
     cudaCallCmplxToFloat(nBlocks, threadsPerBlock, dev_sinogram_cmplx, dev_sinogram_float,
     sinogram_width * height);
-    fprintf(cout, "cmplxtofloat\n");
+    fprintf(stderr, "cmplxtofloat\n");
     cudaFree(dev_sinogram_cmplx);
 
     /* TODO 2: Implement backprojection.
@@ -247,7 +247,7 @@ int main(int argc, char** argv){
 
     cudaCallBackprojection(nBlocks, threadsPerBlock, dev_sinogram_float, dev_output,
     sinogram_width, height, width, nAngles, size_result);
-    fprintf(cout, "backproject");
+    fprintf(stderr, "backproject");
     cudaMemcpy(output_host, dev_output, sizeof(float) * size_result, cudaMemcpyDeviceToHost);
     cudaFree(dev_sinogram_float);
     cudaFree(dev_output);
