@@ -252,6 +252,7 @@ int main(int argc, char** argv){
     sinogram_width, height, width, nAngles, size_result);
     fprintf(stderr, "backproject");
     cudaMemcpy(output_host, dev_output, sizeof(float) * size_result, cudaMemcpyDeviceToHost);
+    fprintf(stderr, "copying back");
     cudaFree(dev_sinogram_float);
     cudaFree(dev_output);
 
