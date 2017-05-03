@@ -183,7 +183,7 @@ int main(int argc, char** argv){
     cufftHandle plan;
     cufftPlan1d(&plan, sinogram_width, CUFFT_C2C, nAngles);
     cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_FORWARD);
-    cudaCallHighPassKernel(nblocks, threadsPerBlock, dev_sinogram_cmplx, sinogram_width, sinogram_width * nAngles);
+    cudaCallHighPassKernel(nBlocks, threadsPerBlock, dev_sinogram_cmplx, sinogram_width, sinogram_width * nAngles);
     cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_INVERSE);
 
     void cudaCallCmplxToFloat(unsigned int blocks, unsigned int threadsPerBlock,
