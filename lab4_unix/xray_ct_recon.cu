@@ -55,10 +55,8 @@ void checkCUDAKernelError()
 }
 
 __global__ void cudaHighPassKernel(const cufftComplex *raw_data, const float sinogram_width, const int size){
-  int tid = threadIdx.x;
   uint idx = blockDim.x * blockIdx.x + threadIdx.x;
-  float scalingFactor = idx % sinogram_width;
-  scalingFactor -= sinogram_width / 2.0;
+  float scalingFactor = idx % sinogram_width - sinogram_width / 2.0;
   scalingFactor = abs(scalingFactor)/(sinogram_width / 2.0);
   while(idx < size){
     raw_data[idx] = raw_data[idx] * scalingFactor;
@@ -72,7 +70,7 @@ const cufftComplex *raw_data, const float sinogram_width, const int size){
 }
 
 __global__
-void cudaCmplxToFloat(const cufftComplex *raw_data, const float *output_data,
+void cudaCmplxToFloat(const cufftComplex *raw_data, float *output_data,
 int size){
     uint idx = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -82,9 +80,15 @@ int size){
     }
 }
 
+void cudaCallCmplxToFloat(unsigned int blocks, unsigned int threadsPerBlock,
+const cufftComplex *raw_data, float *output_data, int size){
+  cudaCmplxToFloat<<<blocks, threadsPerBlock>>>(raw_data, output_data, size);
+}
+
 __global__
-void cudaBackprojection(const float *input_data, const float *output_data,
-  const int sinogram_width, const int angles, const int size){
+void cudaBackprojection(const float *input_data, float *output_data,
+  const int sinogram_width, const int height, const int width, const int angles,
+  const int size){
   uint idx = threadIdx.x + blockIdx.x * blockDim.x;
   while(idx < size){
     int geo_x = (idx % height) - width / 2;
@@ -116,16 +120,10 @@ void cudaBackprojection(const float *input_data, const float *output_data,
 }
 
 void cudaCallBackprojection(unsigned int blocks, unsigned int threadsPerBlock,
-const float *input_data, const float *output_data, const int sinogram_width,
+const float *input_data, float *output_data, const int sinogram_width,
 const int angles, const int size){
   cudaBackprojection<<<blocks, threadsPerBlock>>>(input_data, output_data,
-    sinogram_width, angles, size);
-}
-
-
-void cudaCallCmplxToFloat(unsigned int blocks, unsigned int threadsPerBlock,
-const cufftComplex *raw_data, const float *output_data, int size){
-  cudaCmplxToFloat<<<blocks, threadsPerBlock>>>(raw_data, output_data, size);
+    sinogram_width, height, width, angles, size);
 }
 
 int main(int argc, char** argv){
@@ -151,11 +149,6 @@ int main(int argc, char** argv){
         < output text file's name >\n");
         exit(EXIT_FAILURE);
     }
-
-
-
-
-
 
     /********** Parameters **********/
 
@@ -252,7 +245,7 @@ int main(int argc, char** argv){
     */
 
     cudaCallBackprojection(nBlocks, threadsPerBlock, dev_sinogram_float, dev_output,
-    sinogram_width, nAngles, size_result);
+    sinogram_width, height, width, nAngles, size_result);
 
     cudaMemcpy(output_host, dev_output, sizeof(float) * size_result, cudaMemcpyDeviceToHost);
     cudaFree(dev_sinogram_float);
