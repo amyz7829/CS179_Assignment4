@@ -162,8 +162,8 @@ int main(int argc, char** argv){
         Note: If you want to deal with real-to-complex and complex-to-real
         transforms in cuFFT, you'll have to slightly change our code above.
     */
-    __global__
-    void cudaHighPassKernel(const cufftComplex *raw_data, const float sinogram_width, const int size){
+
+    __global__ void cudaHighPassKernel(const cufftComplex *raw_data, const float sinogram_width, const int size){
       int tid = threadIdx.x;
       uint idx = blockDim.x * blockIdx.x + threadIdx.x;
       float scalingFactor = idx % sinogram_width;
