@@ -162,12 +162,7 @@ int main(int argc, char** argv){
         Note: If you want to deal with real-to-complex and complex-to-real
         transforms in cuFFT, you'll have to slightly change our code above.
     */
-
-    void cudaCallHighPassKernel(const unsigned int blocks, const unsigned int threadsPerBlock,
-    const cufftComplex *raw_data, const float sinogram_width, const int size){
-      cudaHighPassKernel<<<blocks, threadsPerBlock>>>(raw_data, sinogram_width, size);
-    }
-
+    __global__
     void cudaHighPassKernel(const cufftComplex *raw_data, const float sinogram_width, const int size){
       int tid = threadIdx.x;
       uint idx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -180,17 +175,18 @@ int main(int argc, char** argv){
       }
     }
 
+    void cudaCallHighPassKernel(const unsigned int blocks, const unsigned int threadsPerBlock,
+    const cufftComplex *raw_data, const float sinogram_width, const int size){
+      cudaHighPassKernel<<<blocks, threadsPerBlock>>>(raw_data, sinogram_width, size);
+    }
+
     cufftHandle plan;
     cufftPlan1d(&plan, sinogram_width, CUFFT_C2C, nAngles);
     cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_FORWARD);
     cudaCallHighPassKernel(nBlocks, threadsPerBlock, dev_sinogram_cmplx, sinogram_width, sinogram_width * nAngles);
     cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_INVERSE);
 
-    void cudaCallCmplxToFloat(unsigned int blocks, unsigned int threadsPerBlock,
-    const cufftComplex *raw_data, const float *output_data, int size){
-      cudaCmplxToFloat<<<blocks, threadsPerBlock>>>(raw_data, output_data, size);
-    }
-
+    __global__
     void cudaCmplxToFloat(const cufftComplex *raw_data, const float *output_data,
     int size){
         uint idx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -200,6 +196,12 @@ int main(int argc, char** argv){
           idx += blockDim.x * gridDim.x;
         }
     }
+
+    void cudaCallCmplxToFloat(unsigned int blocks, unsigned int threadsPerBlock,
+    const cufftComplex *raw_data, const float *output_data, int size){
+      cudaCmplxToFloat<<<blocks, threadsPerBlock>>>(raw_data, output_data, size);
+    }
+
 
     cudaCallCmplxToFloat(nBlocks, threadsPerBlock, dev_sinogram_cmplx, dev_sinogram_float,
     sinogram_width * height);
@@ -211,12 +213,8 @@ int main(int argc, char** argv){
         - Copy the reconstructed image back to output_host.
         - Free all remaining memory on the GPU.
     */
-    void cudaCallBackprojection(unsigned int blocks, unsigned int threadsPerBlock,
-    const float *input_data, const float *output_data, const int sinogram_width,
-    const int angles, const int size){
-      cudaBackprojection<<<blocks, threadsPerBlock>>>(input_data, output_data,
-        sinogram_width, angles, size);
-    }
+    
+    __global__
     void cudaBackprojection(const float *input_data, const float *output_data,
       const int sinogram_width, const int angles, const int size){
       uint idx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -248,6 +246,14 @@ int main(int argc, char** argv){
         idx += blockDim.x * gridDim.x;
       }
     }
+
+    void cudaCallBackprojection(unsigned int blocks, unsigned int threadsPerBlock,
+    const float *input_data, const float *output_data, const int sinogram_width,
+    const int angles, const int size){
+      cudaBackprojection<<<blocks, threadsPerBlock>>>(input_data, output_data,
+        sinogram_width, angles, size);
+    }
+
     cudaCallBackprojection(nBlocks, threadsPerBlock, dev_sinogram_float, dev_output,
     sinogram_width, nAngles, size_result);
 
