@@ -101,13 +101,13 @@ const cufftComplex *raw_data, float *output_data, int size){
 __global__
 // Performs the backprojection of the image to reconstruct the sinogram
 void cudaBackprojection(const float *input_data, float *output_data,
-  const int sinogram_width, const int height, const int width, const int angles,
+  const int sinogram_width, const int height, const int angles,
   const int size){
   uint idx = threadIdx.x + blockIdx.x * blockDim.x;
   while(idx < size){
     // Calculate the geometric location of our current pixel
-    int geo_x = (idx % height) - width / 2;
-    int geo_y = -1 * ((int)(idx / width)) + height / 2;
+    int geo_x = (idx % height) - height / 2;
+    int geo_y = -1 * ((int)(idx / height)) + height / 2;
     // For each angle, check if it is an edge case. Otherwise, calculate the
     // distance we are from the center of the angle's emitter. Then find the
     // value of the sinogram for that pixel.
@@ -139,9 +139,9 @@ void cudaBackprojection(const float *input_data, float *output_data,
 
 void cudaCallBackprojection(unsigned int blocks, unsigned int threadsPerBlock,
 const float *input_data, float *output_data, const int sinogram_width,
-const int height, const int width, const int angles, const int size){
+const int height, const int angles, const int size){
   cudaBackprojection<<<blocks, threadsPerBlock>>>(input_data, output_data,
-    sinogram_width, height, width, angles, size);
+    sinogram_width, height, angles, size);
 }
 
 int main(int argc, char** argv){
@@ -248,13 +248,14 @@ int main(int argc, char** argv){
     cufftHandle plan;
     cufftPlan1d(&plan, sinogram_width, CUFFT_C2C, nAngles);
     cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_FORWARD);
-    // cudaCallHighPassKernel(nBlocks, threadsPerBlock, dev_sinogram_cmplx, sinogram_width, sinogram_width * nAngles);
+    cudaCallHighPassKernel(nBlocks, threadsPerBlock, dev_sinogram_cmplx, sinogram_width, sinogram_width * nAngles);
     fprintf(stderr, "high pass");
     cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_INVERSE);
     cudaCallCmplxToFloat(nBlocks, threadsPerBlock, dev_sinogram_cmplx, dev_sinogram_float,
     sinogram_width * height);
     fprintf(stderr, "cmplx2float");
     cudaFree(dev_sinogram_cmplx);
+    cufftDestroy(plan);
 
     /* TODO 2: Implement backprojection.
         - Allocate memory for the output image. got it
@@ -264,7 +265,7 @@ int main(int argc, char** argv){
     */
 
     cudaCallBackprojection(nBlocks, threadsPerBlock, dev_sinogram_float, dev_output,
-    sinogram_width, height, width, nAngles, size_result);
+    sinogram_width, height, nAngles, size_result);
     fprintf(stderr, "backproject");
     gpuErrchk(cudaMemcpy(output_host, dev_output, sizeof(float) * size_result, cudaMemcpyDeviceToHost));
     fprintf(stderr, "copying back");
