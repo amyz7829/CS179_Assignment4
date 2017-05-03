@@ -21,48 +21,48 @@ Modified by Jordan Bonilla and Matthew Cedeno (2016)
 #define PI 3.14159265358979
 
 
-// /* Check errors on CUDA runtime functions */
-// #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-// inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
-// {
-//     if (code != cudaSuccess)
-//     {
-//         fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-//         exit(code);
-//     }
-// }
-//
-//
-//
-// /* Check errors on cuFFT functions */
-// void gpuFFTchk(int errval){
-//     if (errval != CUFFT_SUCCESS){
-//         printf("Failed FFT call, error code %d\n", errval);
-//     }
-// }
-//
-//
-// /* Check errors on CUDA kernel calls */
-// void checkCUDAKernelError()
-// {
-//     cudaError_t err = cudaGetLastError();
-//     if  (cudaSuccess != err){
-//         fprintf(stderr, "Error %s\n", cudaGetErrorString(err));
-//     } else {
-//         fprintf(stderr, "No kernel error detected\n");
-//     }
-//
-// }
-//
-//
-//
+/* Check errors on CUDA runtime functions */
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
+{
+    if (code != cudaSuccess)
+    {
+        fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+        exit(code);
+    }
+}
+
+
+
+/* Check errors on cuFFT functions */
+void gpuFFTchk(int errval){
+    if (errval != CUFFT_SUCCESS){
+        printf("Failed FFT call, error code %d\n", errval);
+    }
+}
+
+
+/* Check errors on CUDA kernel calls */
+void checkCUDAKernelError()
+{
+    cudaError_t err = cudaGetLastError();
+    if  (cudaSuccess != err){
+        fprintf(stderr, "Error %s\n", cudaGetErrorString(err));
+    } else {
+        fprintf(stderr, "No kernel error detected\n");
+    }
+
+}
+
+
+
 
 int main(int argc, char** argv){
-    // These functions allow you to select the least utilized GPU
-    // on your system as well as enforce a time limit on program execution.
-    // Please leave these enabled as a courtesy to your fellow classmates
-    // if you are using a shared computer. You may ignore or remove these
-    // functions if you are running on your local machine.
+    // // These functions allow you to select the least utilized GPU
+    // // on your system as well as enforce a time limit on program execution.
+    // // Please leave these enabled as a courtesy to your fellow classmates
+    // // if you are using a shared computer. You may ignore or remove these
+    // // functions if you are running on your local machine.
     // TA_Utilities::select_least_utilized_GPU();
     // int max_time_allowed_in_seconds = 10;
     // TA_Utilities::enforce_time_limit(max_time_allowed_in_seconds);
@@ -278,5 +278,5 @@ int main(int argc, char** argv){
     //
     // fclose(outputFile);
     // printf("CT reconstruction complete. Total run time: %f seconds\n", (float) (clock() - start) / 1000.0);
-    return 0;
+    // return 0;
 }
