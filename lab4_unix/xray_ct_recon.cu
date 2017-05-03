@@ -95,12 +95,12 @@ void cudaBackprojection(const float *input_data, float *output_data,
     int geo_x = (idx % height) - width / 2;
     int geo_y = -1 * (idx % width) + height / 2;
     for(int i = 0; i < angles; i++){
-      float theta = i * 180 / angles;
+      float theta = i * PI / angles;
       int d;
       if(theta == 0){
         d = geo_x;
       }
-      else if(theta == 90){
+      else if(theta == PI / 2){
         d = geo_y;
       }
       else{
@@ -232,10 +232,8 @@ int main(int argc, char** argv){
     cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_FORWARD);
     cudaCallHighPassKernel(nBlocks, threadsPerBlock, dev_sinogram_cmplx, sinogram_width, sinogram_width * nAngles);
     cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_INVERSE);
-    fprintf(stderr, "high pass\n");
     cudaCallCmplxToFloat(nBlocks, threadsPerBlock, dev_sinogram_cmplx, dev_sinogram_float,
     sinogram_width * height);
-    fprintf(stderr, "cmplxtofloat\n");
     cudaFree(dev_sinogram_cmplx);
 
     /* TODO 2: Implement backprojection.
@@ -247,7 +245,6 @@ int main(int argc, char** argv){
 
     cudaCallBackprojection(nBlocks, threadsPerBlock, dev_sinogram_float, dev_output,
     sinogram_width, height, width, nAngles, size_result);
-    fprintf(stderr, "backproject");
     cudaMemcpy(output_host, dev_output, sizeof(float) * size_result, cudaMemcpyDeviceToHost);
     cudaFree(dev_sinogram_float);
     cudaFree(dev_output);
