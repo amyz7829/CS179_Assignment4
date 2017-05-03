@@ -54,10 +54,18 @@ void checkCUDAKernelError()
 
 }
 
+// Performs a high pass filter on the sinogram data
 __global__ void cudaHighPassKernel(cufftComplex *raw_data, const int sinogram_width, const int size){
   uint idx = blockDim.x * blockIdx.x + threadIdx.x;
+
+  // The scaling factor is 0 at sinogram_width / 2, and scales to 1 at 0 and
+  // sinogram width, so we first shift down sinogram_width / 2, putting the
+  // center at 0. This means the scaling factor is then abs(shifted value) /
+  // (sinogram_width / 2)
   float scalingFactor = (idx % sinogram_width) - sinogram_width / 2.0;
   scalingFactor = abs(scalingFactor)/(sinogram_width / 2.0);
+
+  // Scale every value by the scaling factor
   while(idx < size){
     raw_data[idx].x = raw_data[idx].x * scalingFactor;
     raw_data[idx].y = raw_data[idx].y * scalingFactor;
@@ -65,12 +73,15 @@ __global__ void cudaHighPassKernel(cufftComplex *raw_data, const int sinogram_wi
   }
 }
 
+// Calls the high pass kernel
 void cudaCallHighPassKernel(const unsigned int blocks, const unsigned int threadsPerBlock,
 cufftComplex *raw_data, const int sinogram_width, const int size){
   cudaHighPassKernel<<<blocks, threadsPerBlock>>>(raw_data, sinogram_width, size);
 }
 
 __global__
+// Just takes the real value of every complex sinogram data and puts it into the
+// output.
 void cudaCmplxToFloat(const cufftComplex *raw_data, float *output_data,
 int size){
     uint idx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -81,19 +92,26 @@ int size){
     }
 }
 
+// Calls the complex to float kernel
 void cudaCallCmplxToFloat(unsigned int blocks, unsigned int threadsPerBlock,
 const cufftComplex *raw_data, float *output_data, int size){
   cudaCmplxToFloat<<<blocks, threadsPerBlock>>>(raw_data, output_data, size);
 }
 
 __global__
+// Performs the backprojection of the image to reconstruct the sinogram
 void cudaBackprojection(const float *input_data, float *output_data,
   const int sinogram_width, const int height, const int width, const int angles,
   const int size){
   uint idx = threadIdx.x + blockIdx.x * blockDim.x;
   while(idx < size){
+    // Calculate the geometric location of our current pixel
     int geo_x = (idx % height) - width / 2;
     int geo_y = -1 * (idx % width) + height / 2;
+
+    // For each angle, check if it is an edge case. Otherwise, calculate the
+    // distance we are from the center of the angle's emitter. Then find the
+    // value of the sinogram for that pixel.
     for(int i = 0; i < angles; i++){
       float theta = i * PI / angles;
       int d;
@@ -213,11 +231,11 @@ int main(int argc, char** argv){
 
     /* TODO: Allocate memory for all GPU storage above, copy input sinogram
     over to dev_sinogram_cmplx. */
-    cudaMalloc((void**) &dev_sinogram_float, sizeof(float) * size_result);
-    cudaMalloc((void**) &dev_sinogram_cmplx, sizeof(cufftComplex) * sinogram_width * nAngles);
-    cudaMalloc((void**) &dev_output, sizeof(float) * size_result);
+    gpuErrchk(cudaMalloc((void**) &dev_sinogram_float, sizeof(float) * size_result));
+    gpuErrchk(cudaMalloc((void**) &dev_sinogram_cmplx, sizeof(cufftComplex) * sinogram_width * nAngles));
+    gpuErrchk(cudaMalloc((void**) &dev_output, sizeof(float) * size_result));
 
-    cudaMemcpy(dev_sinogram_cmplx, sinogram_host, sizeof(cufftComplex) * sinogram_width * nAngles, cudaMemcpyHostToDevice);
+    gpuErrchk(cudaMemcpy(dev_sinogram_cmplx, sinogram_host, sizeof(cufftComplex) * sinogram_width * nAngles, cudaMemcpyHostToDevice));
 
     /* TODO 1: Implement the high-pass filter:
         - Use cuFFT for the forward FFT
@@ -251,7 +269,7 @@ int main(int argc, char** argv){
     cudaCallBackprojection(nBlocks, threadsPerBlock, dev_sinogram_float, dev_output,
     sinogram_width, height, width, nAngles, size_result);
     fprintf(stderr, "backproject");
-    cudaMemcpy(output_host, dev_output, sizeof(float) * size_result, cudaMemcpyDeviceToHost);
+    gpuErrchk(cudaMemcpy(output_host, dev_output, sizeof(float) * size_result, cudaMemcpyDeviceToHost));
     fprintf(stderr, "copying back");
     cudaFree(dev_sinogram_float);
     cudaFree(dev_output);
