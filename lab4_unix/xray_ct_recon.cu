@@ -1,5 +1,5 @@
 
-/* 
+/*
 Based off work by Nelson, et al.
 Brigham Young University (2010)
 
@@ -25,7 +25,7 @@ Modified by Jordan Bonilla and Matthew Cedeno (2016)
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
 {
-    if (code != cudaSuccess) 
+    if (code != cudaSuccess)
     {
         fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
         exit(code);
@@ -104,8 +104,8 @@ int main(int argc, char** argv){
 
     // GPU DATA STORAGE
     cufftComplex *dev_sinogram_cmplx;
-    float *dev_sinogram_float; 
-    float* output_dev;  // Image storage
+    float *dev_sinogram_float;
+    float* dev_output;  // Image storage
 
 
     cufftComplex *sinogram_host;
@@ -146,7 +146,11 @@ int main(int argc, char** argv){
 
     /* TODO: Allocate memory for all GPU storage above, copy input sinogram
     over to dev_sinogram_cmplx. */
+    cudaMalloc((void**) &dev_sinogram_float, sizeof(float) * size_result);
+    cudaMalloc((void**) &dev_sinogram_cmplx, sizeof(cufftComplex) * sinogram_width * nAngles);
+    cudaMalloc((void**) &output_dev, sizeof(float) size_result);
 
+    cudaMemcpy(dev_sinogram_cmplx, sinogram_host, sizeof(cufftComplex) * sinogram_width * nAngles);
 
     /* TODO 1: Implement the high-pass filter:
         - Use cuFFT for the forward FFT
@@ -158,16 +162,98 @@ int main(int argc, char** argv){
         Note: If you want to deal with real-to-complex and complex-to-real
         transforms in cuFFT, you'll have to slightly change our code above.
     */
+    cufftHandle plan;
+    cufftPlan1d(&plan, sinogram_width, CUFFT_C2C, nAngles);
+    cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_FORWARD);
+    cudaCallHighPassKernel(nblocks, threadsPerBlock, dev_sinogram_cmplx, sinogram_width, sinogram_width * nAngles);
 
+    void cudaCallHighPassKernel(const unsigned int blocks, const unsigned int threadsPerBlock,
+    const cufftComplex *raw_data, const float sinogram_width, const int size){
+      cudaHighPassKernel<<<blocks, threadsPerBlock>>>(raw_data, sinogram_width, size);
+    }
+
+    void cudaHighPassKernel(const cufftComplex *raw_data, const float sinogram_width, const int size){
+      int tid = threadIdx.x;
+      uint idx = blockDim.x * blockIdx.x + threadIdx.x;
+      float scalingFactor = idx % sinogram_width;
+      scalingFactor -= sinogram_width / 2.0;
+      scalingFactor = abs(scalingFactor)/(sinogram_width / 2.0);
+      while(idx < size){
+        raw_data[idx] = raw_data[idx] * scalingFactor;
+        idx += blockDim.x * gridDim.x;
+      }
+    }
+    cufftExecC2C(plan, dev_sinogram_cmplx, dev_sinogram_cmplx, CUFFT_INVERSE);
+    // Move dev_sinogram_cmplx to dev_sinogram_float
+    void cudaCallCmplxToFloat(unsigned int blocks, unsigned int threadsPerBlock,
+    const cufftComplex *raw_data, const float *output_data, int size){
+      cudaCmplxToFloat<<<blocks, threadsPerBlock>>>(raw_data, output_data, size);
+    }
+
+    void cudaCmplxToFloat(const cufftComplex *raw_data, const float *output_data,
+    int size){
+        uint idx = threadIdx.x + blockIdx.x * blockDim.x;
+
+        while(idx < size){
+          output_data[idx] = raw_data[idx].x;
+          idx += blockDim.x * gridDim.x;
+        }
+    }
+
+    cudaCallCmplxToFloat(nBlocks, threadsPerBlock, dev_sinogram_cmplx, dev_sinogram_float,
+    sinogram_width * height);
+    cudaFree(dev_sinogram_cmplx);
 
     /* TODO 2: Implement backprojection.
-        - Allocate memory for the output image.
+        - Allocate memory for the output image. got it
         - Create your own kernel to accelerate backprojection.
         - Copy the reconstructed image back to output_host.
         - Free all remaining memory on the GPU.
     */
+    void cudaCallBackprojection(unsigned int blocks, unsigned int threadsPerBlock,
+    const float *input_data, const float *output_data, const int sinogram_width,
+    const int angles, const int size){
+      cudaBackprojection<<<blocks, threadsPerBlock>>>(input_data, output_data,
+        sinogram_width, angles, size);
+    }
+    void cudaBackprojection(const float *input_data, const float *output_data,
+      const int sinogram_width, const int angles, const int size){
+      uint idx = threadIdx.x + blockIdx.x * blockDim.x;
+      while(idx < size){
+        int geo_x = (idx % height) - width / 2;
+        int geo_y = -1 * (idx % width) + height / 2;
+        for(int i = 0; i < angles; i++){
+          float theta = i * 180 / angles;
+          float m;
+          int d;
+          if(theta == 0){
+            d = geo_x;
+          }
+          else if(theta == 90){
+            d = geo_y;
+          }
+          else{
+            float m = -1 * cos(theta) / sin(theta);
+            float q = -1 / m;
 
-    
+            float x_i = (geo_y - m * geo_x) / (q - m);
+            float y_i = q * x_i;
+            if((q > 0 && x_i < 0) || (q < 0 && x_i > 0)){
+              d = (int) -1 * sqrt(pow(x_i, 2) + pow(y_i, 2));
+            }
+          }
+          output_data[idx] += input[sinogram_width * i + d];
+        }
+        idx += blockDim.x * gridDim.x;
+      }
+    }
+    cudaCallBackprojection(nBlocks, threadsPerBlock, dev_sinogram_float, dev_output,
+    sinogram_width, nAngles, size_result);
+
+    cudaMemcpy(output_host, dev_output, sizeof(float) * size_result, cudaMemcpyDeviceToHost);
+    cudaFree(dev_sinogram_float);
+    cudaFree(dev_output);
+
     /* Export image data. */
 
     for(j = 0; j < width; j++){
@@ -187,6 +273,3 @@ int main(int argc, char** argv){
     printf("CT reconstruction complete. Total run time: %f seconds\n", (float) (clock() - start) / 1000.0);
     return 0;
 }
-
-
-
